@@ -1,0 +1,8 @@
+# Output files
+*.txt
+
+# MacOS Stuff
+.DS_Store
+
+# pprof output
+*.prof
