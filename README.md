@@ -41,15 +41,15 @@ Benchmark command:
 
 | Test | Average Cycles | Average ns/op | Bytes/op | Allocs/op |
 |---|---|---|
-| ExtractAnchors | 1,964,126 | 6,128 | 5,400 | 21 |
-| FormatAnchors | 69,405,656 | 167 | 48 | 2 |
+| ExtractAnchors | 134,922 | 12,168 | 6,552 | 25 |
+| FormatAnchors | 626,671 | 2718 | 593 | 3 |
 
 #### UrlParser
 
 | Test | Average Cycles | Average ns/op | Bytes/op | Allocs/op |
 |---|---|---|
-| ValidURL | 13,882,286 | 861 | 144 | 1 |
-| InvaldURL | 25,792,204 | 471 | 208 | 3 |
+| ValidURL | 725,694 | 1,834 | 144 | 1 |
+| InvaldURL | 1,000,000 | 1,128 | 208 | 3 |
 
 ### pprof
 

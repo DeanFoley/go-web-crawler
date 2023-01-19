@@ -18,18 +18,32 @@ func TestExtractAnchors(t *testing.T) {
 		"https://www.github.com",
 	}
 
-	actual, err := ExtractAnchors(data)
+	anchorsChan := make(chan string)
+	doneChan := make(chan struct{})
+	errorChan := make(chan error)
+	actual := []string{}
 
-	if err != nil {
-		t.Fatal()
-	}
+	go ExtractAnchors(data, anchorsChan, doneChan, errorChan)
+	for {
+		go func() {
+			for val := range anchorsChan {
+				actual = append(actual, val)
+			}
+		}()
 
-	if len(actual) != 3 {
-		t.Fatal()
-	}
+		select {
+		case <-errorChan:
+			t.Fatal()
+		case <-doneChan:
+			if len(actual) != 3 {
+				t.Fatal()
+			}
 
-	if !reflect.DeepEqual(expected, actual) { 
-		t.Fatal()
+			if !reflect.DeepEqual(expected, actual) {
+				t.Fatal()
+			}
+			return
+		}
 	}
 }
 
@@ -40,7 +54,28 @@ func TestFormatAnchors(t *testing.T) {
 		"coffee",
 		"porkpies",
 	}
-	actual := FormatAnchors(rawData)
+
+	doneChan := make(chan struct{})
+	bytesChan := make(chan []byte)
+
+	stringsChan := make(chan string)
+
+	actual := make([]byte, 0)
+
+	go func() {
+		for url := range bytesChan {
+			actual = append(actual, url...)
+		}
+	}()
+
+	go FormatAnchors(stringsChan, bytesChan, doneChan)
+	go func() {
+		for _, val := range rawData {
+			stringsChan <- val
+		}
+		close(stringsChan)
+	}()
+	<-doneChan
 
 	if !reflect.DeepEqual(expected, actual) {
 		t.Fatal()
@@ -52,22 +87,42 @@ func BenchmarkExtractAnchors(b *testing.B) {
 	if err != nil {
 		b.Fatal()
 	}
-	b.ResetTimer()
 
+	anchorsChan := make(chan string)
+	doneChan := make(chan struct{})
+	errorChan := make(chan error)
+
+	go func() {
+		for {
+			<-doneChan
+		}
+	}()
+
+	go func() {
+		for {
+			<-anchorsChan
+		}
+	}()
+
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ExtractAnchors(data)
+		go ExtractAnchors(data, anchorsChan, doneChan, errorChan)
 	}
 }
 
 func BenchmarkFormatAnchors(b *testing.B) {
-	rawData := []string{
-		"biscuits",
-		"coffee",
-		"porkpies",
-	}
-	
+	doneChan := make(chan struct{})
+	bytesChan := make(chan []byte)
+	stringsChan := make(chan string)
+
+	go func() {
+		for {
+			stringsChan <- "Hello"
+		}
+	}()
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		FormatAnchors(rawData)
+		go FormatAnchors(stringsChan, bytesChan, doneChan)
 	}
 }

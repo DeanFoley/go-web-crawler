@@ -6,16 +6,19 @@ import (
 	"net/http"
 )
 
-func GrabWebpage(url string) ([]byte, error) {
-	resp, err := http.Get(url)
+func GrabWebpage(client http.Client, url string, dataChan chan []byte, doneChan chan struct{}, errorChan chan error) {
+	resp, err := client.Get(url)
 	if err != nil {
-		return nil, fmt.Errorf("problem grabbing page: %v", err)
+		errorChan <- fmt.Errorf("problem grabbing page: %v", err)
+		return
 	}
 	defer resp.Body.Close()
 
 	html, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("problem reading result from url: %v", err)
+		errorChan <- fmt.Errorf("problem reading result from url: %v", err)
+		return
 	}
-	return html, nil
+	doneChan <- struct{}{}
+	dataChan <- html
 }

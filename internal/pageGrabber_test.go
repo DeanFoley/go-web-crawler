@@ -25,20 +25,51 @@ func Test_GrabWebpage(t *testing.T) {
 		t.Fatal()
 	}
 
-	actual, err := GrabWebpage(svr.URL)
-	if err != nil {
-		t.Fatal()
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	cl := &http.Client{
+		Transport: tr,
 	}
 
-	if result := reflect.DeepEqual(expected, actual); !result {
-		t.Fatal()
+	bytesChan := make(chan []byte)
+	doneChan := make(chan struct{})
+	errorChan := make(chan error)
+
+	go GrabWebpage(*cl, svr.URL, bytesChan, doneChan, errorChan)
+	for {
+		select {
+		case <-errorChan:
+			t.Fatal()
+		case <-doneChan:
+			actual := <-bytesChan
+
+			if result := reflect.DeepEqual(expected, actual); !result {
+				t.Fatal()
+			}
+			return
+		}
 	}
 }
 
 func Test_GrabWebpageInvalid(t *testing.T) {
-	_, err := GrabWebpage("www.vortex.com")
-	if err == nil {
-		t.Fatal()
+	bytesChan := make(chan []byte)
+	doneChan := make(chan struct{})
+	errorChan := make(chan error)
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	cl := &http.Client{
+		Transport: tr,
+	}
+
+	go GrabWebpage(*cl, "www.vortex.com", bytesChan, doneChan, errorChan)
+	for {
+		select {
+		case <-errorChan:
+			return
+		case <-doneChan:
+			t.Fatal()
+		}
 	}
 
 }
@@ -52,8 +83,22 @@ func Benchmark_GrabWebpage(b *testing.B) {
 		w.Write([]byte(page))
 	}))
 	defer svr.Close()
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	cl := &http.Client{
+		Transport: tr,
+	}
+
+	bytesChan := make(chan []byte, 1)
+	doneChan := make(chan struct{}, 1)
+	errorChan := make(chan error)
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		GrabWebpage(svr.URL)
+		go GrabWebpage(*cl, svr.URL, bytesChan, doneChan, errorChan)
+		<-doneChan
+		b.StopTimer()
+		b.StartTimer()
 	}
 }
