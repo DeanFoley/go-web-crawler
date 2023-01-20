@@ -2,42 +2,59 @@ package app
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"time"
 )
 
 func StartWorkflow(uri string) {
-	if _, err := ValidateUrl(uri); err != nil {
-		fmt.Println("Please provide a valid URL.")
-		return
-	}
-	webpage, err := GrabWebpage(uri)
-	if err != nil {
+	doneChan := make(chan struct{})
+	errorChan := make(chan error)
+
+	go func() {
+		err := <-errorChan
 		fmt.Println(err)
-		return
+		os.Exit(0)
+	}()
+
+	go ValidateUrl(uri, doneChan, errorChan)
+	<-doneChan
+
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	client := &http.Client{
+		Transport: tr,
 	}
-	anchors, err := ExtractAnchors(webpage)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	anchorBytes := FormatAnchors(anchors)
-	workingDirectory, err := os.Getwd()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	filename := fmt.Sprintf("%s/anchors-%s.txt", workingDirectory, time.Now().Format(time.RFC3339))
-	file, err := os.Create(filename)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	defer file.Close()
-	_, err = file.Write(anchorBytes)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	fmt.Printf("Anchors printed to %s! Thank you for using my cool tool!\n", filename)
+
+	dataChan := make(chan []byte, 1)
+	go GrabWebpage(*client, uri, dataChan, doneChan, errorChan)
+	go func() {
+		for {
+			select {
+			case <-doneChan:
+				fmt.Printf("\nSuccessfully downloaded page!")
+				return
+			default:
+				for _, r := range `-\|/` {
+					fmt.Printf("\rWaiting for page... %c", r)
+					time.Sleep(100000000)
+				}
+			}
+		}
+	}()
+	webpage := <-dataChan
+
+	anchorsChan := make(chan string)
+	go ExtractAnchors(webpage, anchorsChan, doneChan, errorChan)
+
+	anchorBytes := make(chan []byte)
+	go FormatAnchors(anchorsChan, anchorBytes, doneChan)
+
+	go PrintResults(anchorBytes, doneChan, errorChan)
+
+	<-doneChan
+	<-doneChan
+	<-doneChan
+
+	fmt.Println("Thanks for using my cool tool!")
 }
