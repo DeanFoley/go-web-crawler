@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func StartWorkflow(uri string) {
+func StartWorkflow(uri string, outputToConsole bool) {
 	doneChan := make(chan struct{})
 	errorChan := make(chan error)
 
@@ -24,6 +24,7 @@ func StartWorkflow(uri string) {
 	defer tr.CloseIdleConnections()
 	client := &http.Client{
 		Transport: tr,
+		Timeout:   time.Second * 10,
 	}
 
 	dataChan := make(chan []byte, 1)
@@ -32,7 +33,7 @@ func StartWorkflow(uri string) {
 		for {
 			select {
 			case <-doneChan:
-				fmt.Printf("\nSuccessfully downloaded page!")
+				fmt.Printf("\nSuccessfully downloaded page!\n")
 				return
 			default:
 				for _, r := range `-\|/` {
@@ -50,7 +51,7 @@ func StartWorkflow(uri string) {
 	anchorBytes := make(chan []byte)
 	go FormatAnchors(anchorsChan, anchorBytes, doneChan)
 
-	go PrintResults(anchorBytes, doneChan, errorChan)
+	go PrintResults(anchorBytes, outputToConsole, doneChan, errorChan)
 
 	<-doneChan
 	<-doneChan

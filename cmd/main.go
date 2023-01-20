@@ -12,6 +12,7 @@ import (
 )
 
 var uri = flag.String("uri", "", "uri to be crawled")
+var outputToConsole = flag.Bool("outputtoconsole", false, "optionally output to the console, rather than a file")
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to `file`")
 var memprofile = flag.String("memprofile", "", "write memory profile to `file`")
 
@@ -29,7 +30,7 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	app.StartWorkflow(*uri)
+	app.StartWorkflow(*uri, *outputToConsole)
 
 	if *memprofile != "" {
 		f, err := os.Create(*memprofile)
