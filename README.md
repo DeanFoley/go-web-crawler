@@ -10,11 +10,15 @@ A CLI tool for grabbing anchors from webpages.
 
 This program takes one argument: a fuly-qualified URL for the webpage you wish to scrape.
 
-`go-crawler <URL>`
+`go-crawler -uri <URL>`
 
 This will then output a file to your current working directory.
 
 `Anchors printed to <wd>/anchors-<timestamp>.txt! Thank you for using my cool tool!`
+
+You cna add the flag `-outputtoconsole` if you would prefer to have the URLs dumped into your current terminal session:
+
+`go-crawler -uri <URL> -outputtoconsole`
 
 ## Tests & Benchmarks
 
