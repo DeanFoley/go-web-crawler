@@ -3,45 +3,60 @@ package app
 import (
 	"io"
 	"strings"
+	"sync"
 
 	"golang.org/x/net/html"
 )
 
-func ExtractAnchors(webpage []byte) ([]string, error) {
+var wg sync.WaitGroup
+
+func ExtractAnchors(webpage []byte, anchorsChan chan string, doneChan chan struct{}, errorChan chan error) {
 	stringifiedWebpage := string(webpage)
 
 	tkn := html.NewTokenizer(strings.NewReader(stringifiedWebpage))
 
-    var anchors []string
+	anchorsQueue := make(chan string)
 
-    for {
-        tt := tkn.Next()
+	go func(anchorsQueue chan string) {
+		for anchor := range anchorsQueue {
+			anchorsChan <- anchor
+		}
+	}(anchorsQueue)
 
-        switch {
-        case tt == html.ErrorToken:
+	for {
+		tt := tkn.Next()
+
+		switch {
+		case tt == html.ErrorToken:
 			if tkn.Err() == io.EOF {
-				return anchors, nil
+				wg.Wait()
+				close(anchorsChan)
+				doneChan <- struct{}{}
+				return
 			} else {
-				return nil, tkn.Err()
+				errorChan <- tkn.Err()
+				return
 			}
 
 		case tt == html.StartTagToken:
-            t := tkn.Token()
-            if t.Data == "a" {
+			t := tkn.Token()
+			if t.Data == "a" {
 				for _, value := range t.Attr {
 					if value.Key == "href" {
-						anchors = append(anchors, value.Val)
+						wg.Add(1)
+						anchorsQueue <- value.Val
 					}
 				}
 			}
-        }
-    }
+		}
+	}
 }
 
-func FormatAnchors(anchors []string) []byte {
-	bytes := make([]byte, 0)
-	for _, url := range anchors {
-		bytes = append(bytes, []byte(url + "\n")...)
+func FormatAnchors(anchorStringsChan chan string, bytesChannel chan []byte, doneChannel chan struct{}) {
+	for url := range anchorStringsChan {
+		bytesChannel <- []byte(url + "\n")
+		wg.Done()
 	}
-	return bytes
+	close(bytesChannel)
+	doneChannel <- struct{}{}
 }
